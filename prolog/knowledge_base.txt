@@ -1,0 +1,49 @@
+:-dynamic facto/2,ultimo_facto/1.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Metaconhecimento
+
+facto_dispara_regras(switch_contract(1), [1, 2]).
+% facto_dispara_regras(calculate_contract(_, _), [3]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% last fact and last rule
+ultimo_facto(7).
+% ultima_regra(2).
+
+% Rules
+
+regra 1
+    se [switch_contract(1) e energy_contract(Final_contracted_power)]   
+    entao [cria_facto(calculate_contract(Final_contracted_power, X))].
+
+regra 2
+    se [calculate_contract(Initial_contracted_power, Final_contracted_power)]
+    entao [cria_facto(suggest_contract(Final_company, Final_contracted_power))].
+
+regra 3
+    se [calculate_contract(X, Y)]
+    entao [cria_facto(ask_user(Question, Answer))].
+
+%regra 4
+%    se [invest_renewable_energy(1, Area) e renewable_energy(1, Current_power) e open_energy_community(0)]
+%    entao [cria_facto(calculate_renewable_energy(Area, Current_power, Power_produced)]
+
+%regra 5
+%    se [invest_renewable_energy(1, Area) e renewable_energy(0, 0) e open_energy_community(1)]
+%    entao [cria_facto(calculate_renewable_energy(Area, Current_power, Power_produced)]
+
+%regra 6
+%    se [invest_renewable_energy(1, Area) e renewable_energy(0, 0) e open_energy_community(0)]
+%    entao [cria_facto(calculate_renewable_energy(Area, Current_power, Power_produced)]
+
+%regra 7
+%    se [calculate_renewable_energy(Area, Current_power, Power_produced) e Power_produced > Current_power]
+%    entao [suggest_solar_panel(1)]
+
+% Facts
+% estes factos são só para teste.
+facto(1, switch_contract(1)).
+facto(2, energy_contract(2)).

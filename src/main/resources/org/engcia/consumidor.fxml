@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Text?>
+
+<Pane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="178.0" prefWidth="283.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.engcia.controller.ConsumidorController">
+   <children>
+      <TextField fx:id="questionInput" layoutX="14.0" layoutY="77.0" prefHeight="25.0" prefWidth="210.0" />
+      <Text fx:id="question" layoutX="25.0" layoutY="66.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Consumer Number" wrappingWidth="186.9366912841797" />
+      <Button fx:id="buttonNext" layoutX="224.0" layoutY="139.0" mnemonicParsing="false" onAction="#buttonEvent" text="GO" />
+   </children>
+</Pane>

@@ -1,0 +1,197 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+package org.engcia.rules;
+
+import org.engcia.model.common.NumericalEvidence;
+import org.engcia.model.common.CategoricalEvidence;
+import org.engcia.model.common.Fact;
+import org.engcia.model.Questions;
+import org.engcia.services.Calculate;
+import org.engcia.view.UI
+import org.engcia.model.ConsumptionPeriod
+import org.engcia.model.common.Conclusion
+import org.engcia.model.common.Deduction
+import org.engcia.services.EvidenceHelper
+import org.engcia.model.AppliancesEfficiency
+
+import org.engcia.App
+
+
+query "Conclusions"
+	$conclusion : Conclusion()
+end
+
+rule "changeContract"
+no-loop
+salience 0
+	when
+	    $e1: NumericalEvidence(description== "Contracted Power")
+	    $e : NumericalEvidence(description =="Best Contracted Power")
+	    NumericalEvidence(description=="Max Consumption")
+	    eval($e1.getValue() != $e.getValue())
+	then
+        Conclusion d = new Conclusion("Change Contracted Power to "+ $e.getValue());
+        insert(d);
+end
+
+
+rule "changeBiSchedule"
+no-loop
+salience 0
+	when
+	    $e2 : CategoricalEvidence(description==Questions.BI_SHEDULE, value=="no")
+	    $e:NumericalEvidence(description == "Average Consumption Bi-Schedule")
+	    $e1:NumericalEvidence(description == "Average Consumption")
+        eval($e1.getValue()*0.4 <= $e.getValue())
+	then
+        Deduction d = new Deduction("Change to Bi-Schedule");
+        insert(d);
+end
+
+
+rule "changeBiSchedule-1"
+no-loop
+salience 0
+	when
+	    Deduction(description == "Change to Bi-Schedule")
+	then
+        Conclusion d = new Conclusion("Change to Bi-Schedule");
+        insert(d);
+end
+
+
+
+rule "installSolarPanel"
+	when
+	    $e:CategoricalEvidence(description==Questions.INVEST_RENEWABLE_ENERGY, value=="yes")
+	    $e1:NumericalEvidence(description==Questions.INSTALL_SPACE, value > 0)
+	then
+        Deduction d = new Deduction("Install Solar Panel");
+        insert(d);
+end
+
+rule "installSolarPanelNoSell"
+	when
+	     Deduction(description == "Install Solar Panel")
+	     $e : CategoricalEvidence(description==Questions.SELL_ENERGY, value == "no")
+	then
+        Conclusion d = new Conclusion("Install "+Calculate.numberOfPanels()+" Solar Panels \n Energy Save "+Calculate.calculateSolarPanelProduction()+ " per hour");
+        insert(d);
+end
+
+
+rule "installSolarPanelSell"
+	when
+	    Deduction(description == "Install Solar Panel")
+	    $e : CategoricalEvidence(description==Questions.SELL_ENERGY, value == "yes")
+	then
+         Conclusion d = new Conclusion("Install "+Calculate.numberOfPanels()+" Solar Panels \n Energy Save "+Calculate.calculateSolarPanelProduction()+" per hour"
+         + " -> Energy Left to Sell "+ Calculate.calculateEnergyToSell());
+        insert(d);
+end
+
+
+rule "switchNight-1"
+	when
+        $e : CategoricalEvidence(description == "Appliance")
+        $e2: CategoricalEvidence(description==$e.getValue()+" is programmable", value=="yes")
+        $e3:CategoricalEvidence(description==Questions.BI_SHEDULE, value=="yes")
+	then
+	     Conclusion d = new Conclusion("Switch to Night Time " +$e.getValue());
+        insert(d);
+end
+
+rule "switchNight-2"
+	when
+        $e : CategoricalEvidence(description == "Appliance")
+        $e2: CategoricalEvidence(description==$e.getValue()+" is programmable", value=="yes")
+        Deduction(description=="Change to Bi-Schedule")
+	then
+	    Conclusion d = new Conclusion("Switch to Night Time " +$e.getValue());
+        insert(d);
+end
+
+
+
+rule "switchLocomotion"
+when
+    CategoricalEvidence(description==Questions.LOCOMOTION, value=="yes")
+    CategoricalEvidence(description==Questions.SWITCH_LOCOMOTION, value=="yes")
+then
+    Deduction d = new Deduction("Switch Locomotion");
+    insert(d);
+end
+
+rule "switchLocomotion-1"
+when
+    Deduction(description=="Switch Locomotion")
+    NumericalEvidence(description==Questions.DISTANCE, value < 10)
+then
+    Conclusion d = new Conclusion("Switch to Electric Scooter");
+    insert(d);
+end
+
+rule "switchLocomotion-2"
+when
+    Deduction(description=="Switch Locomotion")
+    $e: NumericalEvidence(description==Questions.DISTANCE)
+    eval($e.getValue()>10 && $e.getValue() <50)
+then
+    Conclusion d = new Conclusion("Switch to Electric Bike");
+    insert(d);
+end
+
+rule "switchLocomotion-3"
+when
+    Deduction(description=="Switch Locomotion")
+    $e: NumericalEvidence(description==Questions.DISTANCE)
+    eval($e.getValue()>50)
+then
+    Conclusion d = new Conclusion("Switch to Electric Car");
+    insert(d);
+end
+
+rule "payEletric"
+when
+   $d: Conclusion(description=="Switch to Electric Car")
+   CategoricalEvidence(description==Questions.SLOW_CHARGE, value=="no")
+then
+    NumericalEvidence d = EvidenceHelper.getNumericalEvidence("Save Contracted Power");
+    d.removeValue(2);
+    update(d);
+end
+
+
+rule "final-rule"
+when
+    $ee: NumericalEvidence(description=="Contracted Power")
+   CategoricalEvidence(description==Questions.SWITCH_APPLICANCES, value=="yes")
+    $e1: CategoricalEvidence(description=="Washing Machine Efficiency")
+    $e2: CategoricalEvidence(description=="Dish washer Efficiency")
+    $e3: CategoricalEvidence(description=="Refrigerator Efficiency")
+then
+    Conclusion d = new Conclusion("Minimum Change to Lower Contracted Power" +" to:"+Calculate.closestContracted($ee.getValue())+"\n"+Calculate.calculateMinimiumOneLayer());
+    insert(d);
+ end
+
+
+
+
+
+query "evidence"(String ev, String v)
+	e : CategoricalEvidence( description == ev, value == v )
+end
+
