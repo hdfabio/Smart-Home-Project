@@ -3,6 +3,7 @@ package org.engcia.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.engcia.model.QuestionCatalog;
 import org.engcia.services.ExpertEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,8 +85,13 @@ public class JsonRpcHandler {
                 if (valueNode == null || valueNode.isNull()) {
                     throw new IllegalArgumentException("value is required");
                 }
-                List<String> numerical = engine.getQuestions().get("numerical");
+                @SuppressWarnings("unchecked")
+                List<String> numerical = (List<String>) engine.getQuestions().get("numerical");
                 boolean numericalQuestion = (numerical != null && numerical.contains(description)) || valueNode.isNumber();
+                QuestionCatalog.QuestionDef def = QuestionCatalog.get(description);
+                if (def != null) {
+                    numericalQuestion = def.isNumerical();
+                }
                 if (numericalQuestion) {
                     double number = valueNode.isNumber() ? valueNode.asDouble() : Double.parseDouble(valueNode.asText());
                     engine.answerNumerical(description, number);

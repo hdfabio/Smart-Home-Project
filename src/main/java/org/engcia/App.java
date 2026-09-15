@@ -72,7 +72,7 @@ public class App extends Application {
         popupStage = new Stage();
         popupStage.initModality(Modality.APPLICATION_MODAL);
         popupStage.initOwner(stage);
-        Scene popupScene = new Scene(loadFXML(fxml), 300, 200);
+        Scene popupScene = new Scene(loadFXML(fxml), 440, 260);
         popupStage.setScene(popupScene);
         popupStage.show();
     }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.engcia.App;
 import org.engcia.model.Appliances;
 import org.engcia.model.Justification;
+import org.engcia.model.QuestionCatalog;
 import org.engcia.model.Questions;
 import org.engcia.model.common.CategoricalEvidence;
 import org.engcia.model.common.Conclusion;
@@ -44,8 +45,7 @@ public class ExpertEngine {
     private TrackingAgendaEventListener agendaEventListener;
     private Map<Integer, Justification> justifications;
     private List<String> conclusionsList;
-    private List<String> questionListCategorical;
-    private List<String> questionListNumerical;
+    private List<String> pendingQuestions;
     private String consumerId;
     private int conclusionCounter;
 
@@ -125,25 +125,22 @@ public class ExpertEngine {
     }
 
     private void resetQuestionLists() {
-        questionListCategorical = new ArrayList<>();
-        questionListNumerical = new ArrayList<>();
-        questionListCategorical.add(Questions.BI_SHEDULE);
-        questionListCategorical.add(Questions.INVEST_RENEWABLE_ENERGY);
-        questionListCategorical.add(Questions.SELL_ENERGY);
-        questionListCategorical.add(Questions.SWITCH_APPLICANCES);
-        questionListCategorical.add("Dish washer Efficiency");
-        questionListCategorical.add("Dish washer is programmable");
-        questionListCategorical.add("Washing Machine Efficiency");
-        questionListCategorical.add("Washing Machine is programmable");
-        questionListCategorical.add("Refrigerator Efficiency");
-        questionListCategorical.add(Questions.LOCOMOTION);
-        questionListCategorical.add(Questions.SWITCH_LOCOMOTION);
-        questionListCategorical.add(Questions.SLOW_CHARGE);
-        questionListNumerical.add("Contracted Power");
-        questionListNumerical.add(Questions.INSTALL_SPACE);
-        questionListNumerical.add(Questions.DISTANCE);
-        App.questionListCategorical = questionListCategorical;
-        App.questionListNumerical = questionListNumerical;
+        pendingQuestions = new ArrayList<>();
+        for (QuestionCatalog.QuestionDef def : QuestionCatalog.ordered()) {
+            pendingQuestions.add(def.getKey());
+        }
+        App.questionListCategorical = pendingQuestions.stream()
+                .filter(key -> {
+                    QuestionCatalog.QuestionDef def = QuestionCatalog.get(key);
+                    return def != null && !def.isNumerical();
+                })
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        App.questionListNumerical = pendingQuestions.stream()
+                .filter(key -> {
+                    QuestionCatalog.QuestionDef def = QuestionCatalog.get(key);
+                    return def != null && def.isNumerical();
+                })
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
     private void loadProfileFacts() throws IOException {
@@ -185,7 +182,8 @@ public class ExpertEngine {
         insertNumerical("Dish washer Max", dwMax);
         insertNumerical("Refrigerator Max", fridgeMax);
 
-        for (String appliance : Arrays.asList("Washing Machine", "Dish washer", "Refrigerator")) {
+        // Only appliances that can be delayed-start programmed (fridge always-on).
+        for (String appliance : Arrays.asList("Washing Machine", "Dish washer")) {
             session.insert(new CategoricalEvidence("Appliance", appliance));
         }
     }
@@ -253,17 +251,33 @@ public class ExpertEngine {
 
     public synchronized void answer(String description, String value) {
         ensureSession();
-        session.insert(new CategoricalEvidence(description, value));
-        questionListCategorical.remove(description);
+        String normalized = value == null ? "" : value.trim();
+        if ("yes".equalsIgnoreCase(normalized) || "no".equalsIgnoreCase(normalized)) {
+            normalized = normalized.toLowerCase();
+        }
+        session.insert(new CategoricalEvidence(description, normalized));
+        markAnswered(description);
     }
 
     public synchronized void answerNumerical(String description, double value) {
         ensureSession();
         updateOrInsertNumerical(description, value);
-        questionListNumerical.remove(description);
+        markAnswered(description);
         if (Questions.INSTALL_SPACE.equals(description)) {
             updateNumerical("Solar Panel Production", Calculate.calculateSolarPanelProduction());
             updateNumerical("Energy to Sell", Calculate.calculateEnergyToSell());
+        }
+    }
+
+    private void markAnswered(String description) {
+        if (pendingQuestions != null) {
+            pendingQuestions.remove(description);
+        }
+        if (App.questionListCategorical != null) {
+            App.questionListCategorical.remove(description);
+        }
+        if (App.questionListNumerical != null) {
+            App.questionListNumerical.remove(description);
         }
     }
 
@@ -308,26 +322,51 @@ public class ExpertEngine {
         }
     }
 
-    public synchronized Map<String, List<String>> getQuestions() {
-        Map<String, List<String>> questions = new LinkedHashMap<>();
-        questions.put("categorical", new ArrayList<>(questionListCategorical == null ? Collections.emptyList() : questionListCategorical));
-        questions.put("numerical", new ArrayList<>(questionListNumerical == null ? Collections.emptyList() : questionListNumerical));
+    public synchronized Map<String, Object> getQuestions() {
+        List<Map<String, Object>> pending = new ArrayList<>();
+        List<String> categorical = new ArrayList<>();
+        List<String> numerical = new ArrayList<>();
+        if (pendingQuestions != null) {
+            for (String key : pendingQuestions) {
+                QuestionCatalog.QuestionDef def = QuestionCatalog.get(key);
+                if (def == null) {
+                    continue;
+                }
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("key", def.getKey());
+                item.put("label", def.getLabel());
+                item.put("type", def.getType().name());
+                item.put("options", def.getOptions());
+                pending.add(item);
+                if (def.isNumerical()) {
+                    numerical.add(def.getKey());
+                } else {
+                    categorical.add(def.getKey());
+                }
+            }
+        }
+        Map<String, Object> questions = new LinkedHashMap<>();
+        questions.put("pending", pending);
+        questions.put("categorical", categorical);
+        questions.put("numerical", numerical);
         return questions;
     }
 
     public synchronized String nextQuestion() {
-        if (questionListCategorical != null && !questionListCategorical.isEmpty()) {
-            return questionListCategorical.get(0);
+        QuestionCatalog.QuestionDef def = nextQuestionDef();
+        return def == null ? null : def.getKey();
+    }
+
+    public synchronized QuestionCatalog.QuestionDef nextQuestionDef() {
+        if (pendingQuestions == null || pendingQuestions.isEmpty()) {
+            return null;
         }
-        if (questionListNumerical != null && !questionListNumerical.isEmpty()) {
-            return questionListNumerical.get(0);
-        }
-        return null;
+        return QuestionCatalog.get(pendingQuestions.get(0));
     }
 
     public synchronized boolean isNextQuestionNumerical() {
-        return (questionListCategorical == null || questionListCategorical.isEmpty())
-                && questionListNumerical != null && !questionListNumerical.isEmpty();
+        QuestionCatalog.QuestionDef def = nextQuestionDef();
+        return def != null && def.isNumerical();
     }
 
     public synchronized boolean hasPendingQuestions() {

@@ -17,18 +17,11 @@ package org.engcia.rules;
 
 import org.engcia.model.common.NumericalEvidence;
 import org.engcia.model.common.CategoricalEvidence;
-import org.engcia.model.common.Fact;
 import org.engcia.model.Questions;
 import org.engcia.services.Calculate;
-import org.engcia.view.UI
-import org.engcia.model.ConsumptionPeriod
-import org.engcia.model.common.Conclusion
-import org.engcia.model.common.Deduction
-import org.engcia.services.EvidenceHelper
-import org.engcia.model.AppliancesEfficiency
-
-import org.engcia.App
-
+import org.engcia.model.common.Conclusion;
+import org.engcia.model.common.Deduction;
+import org.engcia.services.EvidenceHelper;
 
 query "Conclusions"
 	$conclusion : Conclusion()
@@ -43,7 +36,7 @@ salience 0
 	    NumericalEvidence(description=="Max Consumption")
 	    eval($e1.getValue() != $e.getValue())
 	then
-        Conclusion d = new Conclusion("Change Contracted Power to "+ $e.getValue());
+        Conclusion d = new Conclusion("Change contracted power to " + $e.getValue() + " kW (matches your peak load)");
         insert(d);
 end
 
@@ -68,13 +61,14 @@ salience 0
 	when
 	    Deduction(description == "Change to Bi-Schedule")
 	then
-        Conclusion d = new Conclusion("Change to Bi-Schedule");
+        Conclusion d = new Conclusion("Change to a bi-schedule / dual-rate tariff (enough consumption in off-peak hours)");
         insert(d);
 end
 
 
 
 rule "installSolarPanel"
+no-loop
 	when
 	    $e:CategoricalEvidence(description==Questions.INVEST_RENEWABLE_ENERGY, value=="yes")
 	    $e1:NumericalEvidence(description==Questions.INSTALL_SPACE, value > 0)
@@ -84,49 +78,56 @@ rule "installSolarPanel"
 end
 
 rule "installSolarPanelNoSell"
+no-loop
 	when
 	     Deduction(description == "Install Solar Panel")
 	     $e : CategoricalEvidence(description==Questions.SELL_ENERGY, value == "no")
 	then
-        Conclusion d = new Conclusion("Install "+Calculate.numberOfPanels()+" Solar Panels \n Energy Save "+Calculate.calculateSolarPanelProduction()+ " per hour");
+        Conclusion d = new Conclusion("Install " + Calculate.numberOfPanels() + " solar panels (~"
+            + String.format("%.2f", Calculate.calculateSolarPanelProduction()) + " kWh capacity estimate; self-consumption only)");
         insert(d);
 end
 
 
 rule "installSolarPanelSell"
+no-loop
 	when
 	    Deduction(description == "Install Solar Panel")
 	    $e : CategoricalEvidence(description==Questions.SELL_ENERGY, value == "yes")
 	then
-         Conclusion d = new Conclusion("Install "+Calculate.numberOfPanels()+" Solar Panels \n Energy Save "+Calculate.calculateSolarPanelProduction()+" per hour"
-         + " -> Energy Left to Sell "+ Calculate.calculateEnergyToSell());
+         Conclusion d = new Conclusion("Install " + Calculate.numberOfPanels() + " solar panels (~"
+            + String.format("%.2f", Calculate.calculateSolarPanelProduction()) + " kWh capacity estimate)"
+            + " - surplus to sell ~" + String.format("%.2f", Calculate.calculateEnergyToSell()) + " kWh");
         insert(d);
 end
 
 
 rule "switchNight-1"
+no-loop
 	when
         $e : CategoricalEvidence(description == "Appliance")
         $e2: CategoricalEvidence(description==$e.getValue()+" is programmable", value=="yes")
         $e3:CategoricalEvidence(description==Questions.BI_SHEDULE, value=="yes")
 	then
-	     Conclusion d = new Conclusion("Switch to Night Time " +$e.getValue());
+	     Conclusion d = new Conclusion("Run " + $e.getValue() + " at night / off-peak (programmable + bi-schedule)");
         insert(d);
 end
 
 rule "switchNight-2"
+no-loop
 	when
         $e : CategoricalEvidence(description == "Appliance")
         $e2: CategoricalEvidence(description==$e.getValue()+" is programmable", value=="yes")
         Deduction(description=="Change to Bi-Schedule")
 	then
-	    Conclusion d = new Conclusion("Switch to Night Time " +$e.getValue());
+	    Conclusion d = new Conclusion("Run " + $e.getValue() + " at night / off-peak (programmable + switch to bi-schedule)");
         insert(d);
 end
 
 
 
 rule "switchLocomotion"
+no-loop
 when
     CategoricalEvidence(description==Questions.LOCOMOTION, value=="yes")
     CategoricalEvidence(description==Questions.SWITCH_LOCOMOTION, value=="yes")
@@ -136,62 +137,70 @@ then
 end
 
 rule "switchLocomotion-1"
+no-loop
 when
     Deduction(description=="Switch Locomotion")
-    NumericalEvidence(description==Questions.DISTANCE, value < 10)
+    NumericalEvidence(description==Questions.DISTANCE, value <= 10)
 then
-    Conclusion d = new Conclusion("Switch to Electric Scooter");
+    Conclusion d = new Conclusion("Switch to an electric scooter (daily distance <= 10 km)");
     insert(d);
 end
 
 rule "switchLocomotion-2"
+no-loop
 when
     Deduction(description=="Switch Locomotion")
     $e: NumericalEvidence(description==Questions.DISTANCE)
-    eval($e.getValue()>10 && $e.getValue() <50)
+    eval($e.getValue() > 10 && $e.getValue() <= 50)
 then
-    Conclusion d = new Conclusion("Switch to Electric Bike");
+    Conclusion d = new Conclusion("Switch to an electric bike (daily distance 11-50 km)");
     insert(d);
 end
 
 rule "switchLocomotion-3"
+no-loop
 when
     Deduction(description=="Switch Locomotion")
     $e: NumericalEvidence(description==Questions.DISTANCE)
-    eval($e.getValue()>50)
+    eval($e.getValue() > 50)
 then
-    Conclusion d = new Conclusion("Switch to Electric Car");
+    Conclusion d = new Conclusion("Switch to an electric car (daily distance > 50 km)");
     insert(d);
 end
 
-rule "payEletric"
+rule "fastChargeExtraPower"
+no-loop
 when
-   $d: Conclusion(description=="Switch to Electric Car")
+   Conclusion(description=="Switch to an electric car (daily distance > 50 km)")
    CategoricalEvidence(description==Questions.SLOW_CHARGE, value=="no")
 then
-    NumericalEvidence d = EvidenceHelper.getNumericalEvidence("Save Contracted Power");
-    d.removeValue(2);
-    update(d);
+    NumericalEvidence save = EvidenceHelper.getNumericalEvidence("Save Contracted Power");
+    if (save != null) {
+        save.removeValue(2);
+        update(save);
+    }
+    Conclusion d = new Conclusion("Fast EV charging may need ~2 kW extra contracted power — prefer slow charging if possible");
+    insert(d);
 end
 
 
 rule "final-rule"
+no-loop
 when
     $ee: NumericalEvidence(description=="Contracted Power")
    CategoricalEvidence(description==Questions.SWITCH_APPLICANCES, value=="yes")
     $e1: CategoricalEvidence(description=="Washing Machine Efficiency")
     $e2: CategoricalEvidence(description=="Dish washer Efficiency")
     $e3: CategoricalEvidence(description=="Refrigerator Efficiency")
+    eval(!Calculate.calculateMinimiumOneLayer().isEmpty())
 then
-    Conclusion d = new Conclusion("Minimum Change to Lower Contracted Power" +" to:"+Calculate.closestContracted($ee.getValue())+"\n"+Calculate.calculateMinimiumOneLayer());
+    Conclusion d = new Conclusion("Upgrade appliances to lower contracted power toward "
+        + Calculate.closestContracted($ee.getValue()) + " kW:\n" + Calculate.calculateMinimiumOneLayer());
     insert(d);
  end
-
-
 
 
 
 query "evidence"(String ev, String v)
 	e : CategoricalEvidence( description == ev, value == v )
 end
-

@@ -17,9 +17,12 @@ import java.util.ResourceBundle;
 public class PrimaryController implements Initializable {
 
     public static String helpText = "--------------------------------READ THIS--------------------------------- \n\n" +
-            "UNITS: Distance is in km --- Area is in m^2 ---- Contracted Power is in kW\n\n" +
-            "Efficiency ranges:[A+++,A++,A+,A,B,C,D], except Refrigerator does not have D efficiency\n\n" +
-            "Other answers to the questions should be 'yes' or 'no'";
+            "Units are shown on each question:\n" +
+            "- Contracted power: kW (pick a tariff tier)\n" +
+            "- Solar area: m²\n" +
+            "- Distance: km\n\n" +
+            "Yes/no and efficiency answers use the dropdown.\n" +
+            "Refrigerator has no D efficiency class.";
 
     @FXML
     private Button buttonStart;
