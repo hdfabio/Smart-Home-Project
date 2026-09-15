@@ -3,22 +3,23 @@ package org.engcia.controller;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import org.engcia.App;
+import org.engcia.services.ExpertEngine;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import java.util.ResourceBundle;
 
 public class PrimaryController implements Initializable {
 
-public static String conclusions;
-public static int count;
-public static String helpText = "--------------------------------READ THIS--------------------------------- \n\n" +
-                                "UNITS: Distance is in Km --- Area is in m^2 ---- Contracted Power is in KWh\n\n" +
-                                "Efficiency ranges:[A+++,A++,A+,A,B,C,D], except Refrigerator doesnt have D efficiency\n\n"+
-                                "Other answers to the questions should be 'yes' or 'no'";
+    public static String helpText = "--------------------------------READ THIS--------------------------------- \n\n" +
+            "UNITS: Distance is in km --- Area is in m^2 ---- Contracted Power is in kW\n\n" +
+            "Efficiency ranges:[A+++,A++,A+,A,B,C,D], except Refrigerator does not have D efficiency\n\n" +
+            "Other answers to the questions should be 'yes' or 'no'";
 
     @FXML
     private Button buttonStart;
@@ -33,54 +34,56 @@ public static String helpText = "--------------------------------READ THIS------
     private Button helpButton2;
 
     @FXML
-    public void onClickStartAnalysis(ActionEvent actionEvent) throws IOException, InterruptedException {
-        if(count>1) {
-            new Thread(App::runEngine).start();
-
-            synchronized (App.lock1) {
-                App.lock1.wait();
-            }
+    public void onClickStartAnalysis(ActionEvent actionEvent) throws IOException {
+        try {
+            ExpertEngine.get().resetCurrentConsumer();
+        } catch (IOException e) {
+            showError("Select a consumer first.");
+            return;
         }
         App.setPopupScene("questions");
-        this.buttonStart2.setDisable(false);
     }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        StringBuilder a = new StringBuilder();
-        this.buttonStart2.setDisable(true);
-        if(App.conclusionsList!=null) {
-            for (String b : App.conclusionsList) {
-                a.append(b);
-                a.append("\n\n");
-            }
-            this.middleTextArea.setText(a.toString());
+        refreshConclusions();
+        if (buttonStart2 != null) {
+            buttonStart2.setDisable(!ExpertEngine.get().hasSession());
         }
-        if(count>0) {
-            new Thread(App::runEngine).start();
-
-            synchronized (App.lock1) {
-                try {
-                    App.lock1.wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-        count++;
-
-        helpButton2.setOnAction((event) ->{
-            this.middleTextArea.setText(helpText);
-        });
+        helpButton2.setOnAction((event) -> this.middleTextArea.setText(helpText));
     }
 
     @FXML
     public void onClickContinueAnalysis(ActionEvent actionEvent) throws IOException {
+        if (!ExpertEngine.get().hasSession()) {
+            showError("Select a consumer first.");
+            return;
+        }
         App.setPopupScene("questions");
     }
 
     @FXML
     void switchConsumerOnAction(ActionEvent event) throws IOException {
         App.setRoot("consumidor");
+    }
+
+    private void refreshConclusions() {
+        List<String> conclusions = ExpertEngine.get().getConclusions();
+        if (conclusions.isEmpty()) {
+            return;
+        }
+        StringBuilder text = new StringBuilder();
+        for (String conclusion : conclusions) {
+            text.append(conclusion);
+            text.append("\n\n");
+        }
+        this.middleTextArea.setText(text.toString());
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }
