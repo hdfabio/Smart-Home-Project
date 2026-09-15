@@ -11,9 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Parameter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -60,17 +62,7 @@ public class RuleUtils {
     }
 
     public static List<RuleDescr> getRulesDescriptionFromDRL() {
-        String drl;
-        StringBuffer drlBuffer = new StringBuffer();
-
-        try {
-            for (String path: DRL_PATHS) {
-                drlBuffer.append(new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset()));
-            }
-            drl = drlBuffer.toString();
-        } catch (IOException e) {
-            throw new RuntimeException("File not found", e);
-        }
+        String drl = loadDrlSource();
 
         DrlParser parser = new DrlParser(LanguageLevelOption.DRL6);
         PackageDescr pkgDescr;
@@ -86,6 +78,26 @@ public class RuleUtils {
             throw new RuntimeException("Path incorrectly defined: ");
         }
         return pkgDescr.getRules();
+    }
+
+    private static String loadDrlSource() {
+        StringBuffer drlBuffer = new StringBuffer();
+        try {
+            if (DRL_PATHS != null && !DRL_PATHS.isEmpty()) {
+                for (String path : DRL_PATHS) {
+                    drlBuffer.append(new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset()));
+                }
+                return drlBuffer.toString();
+            }
+            try (InputStream in = RuleUtils.class.getResourceAsStream("/org/engcia/rules/rules.drl")) {
+                if (in == null) {
+                    throw new IOException("Classpath resource /org/engcia/rules/rules.drl not found");
+                }
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("DRL file not found", e);
+        }
     }
 
     public static List<PatternDescr> getRuleConditions(String ruleName, List<RuleDescr> rulesDescr) {
@@ -162,10 +174,8 @@ public class RuleUtils {
             try {
                 return convertConstructorToDRL(c);
             } catch (Exception e) {
-                System.out.println(e.toString());
-                System.exit(0);
+                throw new RuntimeException("Could not convert constructor to DRL: " + c, e);
             }
-            return null;
         }).collect(Collectors.toSet());
 
         condSet.addAll(consSet);

@@ -26,49 +26,49 @@ public class Appliances {
     @JsonProperty("Refrigerator")
     public Refrigerator refrigerator;
 
-    public class DishWasher{
+    public static class DishWasher{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class Dryer{
+    public static class Dryer{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class Kettle{
+    public static class Kettle{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class Lighting{
+    public static class Lighting{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class Microwave{
+    public static class Microwave{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class Periods{
+    public static class Periods{
         @JsonProperty("0")
         public String _0;
         @JsonProperty("1")
         public String _1;
     }
 
-    public class Refrigerator{
+    public static class Refrigerator{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
@@ -76,28 +76,28 @@ public class Appliances {
     }
 
 
-    public class TotalConsumption{
+    public static class TotalConsumption{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class TV{
+    public static class TV{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class WashingMachine{
+    public static class WashingMachine{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")
         public double _1;
     }
 
-    public class WaterHeater{
+    public static class WaterHeater{
         @JsonProperty("0")
         public double _0;
         @JsonProperty("1")

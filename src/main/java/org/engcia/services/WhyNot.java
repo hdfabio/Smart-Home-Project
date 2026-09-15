@@ -41,15 +41,13 @@ public class WhyNot {
         try {
             DRLconclusion = RuleUtils.convertConstructorToDRL(expectedConclusion);
         } catch (Exception e) {
-            System.out.println(e.toString());
-            System.exit(0);
+            throw new RuntimeException("Invalid WhyNot conclusion: " + expectedConclusion, e);
         }
 
         try {
             generateExplanation(expectedConclusion, DRLconclusion, explanation,0);
         } catch (Exception e) {
-            System.out.println(e.toString());
-            System.exit(0);
+            throw new RuntimeException("WhyNot explanation failed for: " + expectedConclusion, e);
         }
 
         return explanation.toString();
