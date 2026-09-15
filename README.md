@@ -46,9 +46,20 @@ Configuration lives in `src/main/resources/application.properties` (override wit
 
 ## Quick JSON-RPC example
 
-```bash
-curl -s -X POST http://localhost:8080/rpc -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"method\":\"setConsumer\",\"params\":{\"consumerId\":\"1\"},\"id\":1}"
+With the app running (`mvn javafx:run`), open another terminal.
+
+**PowerShell** (write the body to a file so quotes stay intact):
+
+```powershell
+@"
+{"jsonrpc":"2.0","method":"setConsumer","params":{"consumerId":"1"},"id":1}
+"@ | Set-Content -Encoding utf8 $env:TEMP\rpc.json
+curl.exe -s -X POST http://localhost:8080/rpc -H "Content-Type: application/json" --data-binary "@$env:TEMP\rpc.json"
 ```
+
+Then answer questions with method `answer` (`description` = fact key from `getQuestions`, `value` = `yes`/`no`/number), and call `recommend`.
+
+Health check: `curl.exe -s http://localhost:8080/health`
 
 See [docs/integrations.md](docs/integrations.md) for MQTT topics, RPC methods, and Home Assistant notes.
 

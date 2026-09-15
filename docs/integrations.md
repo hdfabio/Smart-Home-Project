@@ -20,7 +20,7 @@ Health check: `GET /health` → `{"status":"ok"}`.
 | Method | Params | Result |
 |--------|--------|--------|
 | `setConsumer` | `consumerId` (`"1"` or `"2"`) | `{ "consumerId": "1" }` |
-| `getQuestions` | none | remaining categorical / numerical questions |
+| `getQuestions` | none | remaining questions (`pending` with `key`/`label`/`type`/`options`, plus `categorical`/`numerical` keys) |
 | `answer` | `description`, `value` | `{ "ok": true, "pending": … }` |
 | `recommend` | none | `{ "consumerId", "conclusions": [ … ] }` |
 | `how` | `factId` (int) | How explanation for that fact |
@@ -37,6 +37,7 @@ curl.exe -s -X POST http://localhost:8080/rpc -H "Content-Type: application/json
 curl.exe -s -X POST http://localhost:8080/rpc -H "Content-Type: application/json" --data-raw "{\"jsonrpc\":\"2.0\",\"method\":\"answer\",\"params\":{\"description\":\"Contracted Power is Dual day(2 Schedules)\",\"value\":\"no\"},\"id\":2}"
 ```
 
+Use the `key` field from `getQuestions` as `description` (not the human `label`).
 ```powershell
 curl.exe -s -X POST http://localhost:8080/rpc -H "Content-Type: application/json" --data-raw "{\"jsonrpc\":\"2.0\",\"method\":\"upsertConsumption\",\"params\":{\"maxKw\":4.2,\"meanKw\":1.1,\"offPeakMeanKw\":0.8},\"id\":3}"
 ```
